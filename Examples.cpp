@@ -8,10 +8,10 @@ using namespace std;
 robot_link  rlink;                            // datatype for the robot link
 stopwatch watch;
 const double pi=3.1415926535897932384626;
-const int at_the_middle=0x05;
-const int left_deviation[2] = {0x04, 0x06}; 
-const int right_deviation[2] = {0x03, 0x01};
-const int reach_white_line = 0x00;
+const int at_the_middle=0x02
+const int left_deviation[2] = {0x03, 0x01}; 
+const int right_deviation[2] = {0x04, 0x06};
+const int reach_white_line = 0x07;
 //const int special_case = 0x02;
 int speed_conpensation = 10;
 int adjust_speed_addition = 10;
@@ -66,12 +66,13 @@ double actual_speed (int rpm)
 
 void turn (char m)
 {
-	//The idea is to set maximum angle (115) and check sensor in the
+	//The idea is to set maximum angle (127) and check sensor in the
 	//middle or not. Whichever comes first stops the turning.
 	
-	int turning_rpm = 40;
-	double angle_rad = 115 * (pi/180);
+	int turning_rpm = 100;
+	double angle_rad = 135 * (pi/180);
 	double turning_time = (angle_rad*robot_width/2)/actual_speed(turning_rpm);
+	cout<<turning_time<<endl;
 	switch (m)
 	{
 		case 'L':
@@ -81,7 +82,7 @@ void turn (char m)
 			{
 				rlink.command(MOTOR_2_GO,turning_rpm);
 				rlink.command(MOTOR_1_GO,127+turning_rpm);
-				if (current_position()==at_the_middle && watch.read()-turning_time>=1)
+				if (current_position()==at_the_middle && watch.read()>=1000)
 					break;
 			}
 			watch.stop();
@@ -94,7 +95,7 @@ void turn (char m)
 			{
 				rlink.command(MOTOR_1_GO,turning_rpm);
 				rlink.command(MOTOR_2_GO,127+turning_rpm);
-				if (current_position()==at_the_middle && watch.read()-turning_time>=1)
+				if (current_position()==at_the_middle && watch.read()>=1000)
 					break;
 			}
 			watch.stop();
@@ -164,7 +165,7 @@ int main ()
 	double motor_2_v=actual_speed(motor_2_r);
 	cout<<motor_1_v<<endl;
 	cout<<motor_2_v<<endl;
-	double distance = 5000.0;
+	double distance = 10000.0;
 	double time_1=distance/motor_1_v;
 	double time_2 = robot_length/motor_1_v;
 	drive_1(time_1, time_2, motor_1_r, motor_2_r, 'R');
