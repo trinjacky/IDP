@@ -7,7 +7,7 @@ using namespace std;
 #define ROBOT_NUM  50                         // The id number (see below)
 robot_link  rlink;                            // datatype for the robot link
 stopwatch watch;
-const double pi=3.1415926535897932;
+const double pi=3.1415926535897932384626;
 const int at_the_middle=0x05;
 const int left_deviation[2] = {0x04, 0x06}; 
 const int right_deviation[2] = {0x03, 0x01};
@@ -62,7 +62,8 @@ double actual_speed (int rpm)
 void turn (char m)
 {
 	int turning_rpm = 60;
-	double turning_time = (pi*robot_width/4)/actual_speed(turning_rpm);
+	double angle_rad = 120 * (pi/180);
+	double turning_time = (angle_rad*robot_width/2)/actual_speed(turning_rpm);
 	switch (m)
 	{
 		case 'L':
@@ -136,13 +137,11 @@ void drive_1(int time, int motor_1_r, int motor_2_r, char turn_direction)
 
 int main ()
 {
-	watch.start();
 	check();
-	double full_velocity=40*80*pi/60000; 
 	int motor_1_r=90;
 	int motor_2_r=90;
-	double motor_1_v=motor_1_r/127.0*full_velocity; 
-	double motor_2_v=motor_2_r/127.0*full_velocity;
+	double motor_1_v=actual_speed(motor_1_r); 
+	double motor_2_v=actual_speed(motor_2_r);
 	cout<<motor_1_v<<endl;
 	cout<<motor_2_v<<endl;
 	double distance = 5000.0;
@@ -150,4 +149,5 @@ int main ()
 	drive_1(time_1, motor_1_r, motor_2_r, 'L');
 	time_1 = robot_length/motor_1_v;
 	drive_1(time_1, motor_1_r, motor_2_r, 'L');
+	return 0;
 }
