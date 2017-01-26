@@ -4,8 +4,8 @@ using namespace std;
 #include <stopwatch.h>
 #include <robot_link.h>
 #include <cmath>
-#define ROBOT_NUM  50                         // The id number (see below)
-robot_link  rlink;                            // datatype for the robot link
+#define ROBOT_NUM  50                     // The id number (see below)
+robot_link  rlink;                        // datatype for the robot link
 stopwatch watch;
 //Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
 const double pi=3.1415926535897932384626;
@@ -38,20 +38,20 @@ int current_position()
 
 void check ()
 {
-	if (!rlink.initialise (ROBOT_NUM)) // setup the link
+	if (!rlink.initialise (ROBOT_NUM))			// setup the link
 	{      
 		cout << "Cannot initialise link" << endl;
 		rlink.print_errs("    ");
 	}
-	int val = rlink.request (TEST_INSTRUCTION);   // send test instruction
-	if (val == TEST_INSTRUCTION_RESULT)	      // check result
+	int val = rlink.request (TEST_INSTRUCTION); // send test instruction
+	if (val == TEST_INSTRUCTION_RESULT)	        // check result
 		cout << "Test passed" << endl;
 	else if (val == REQUEST_ERROR) 
 	{
 		cout << "Fatal errors on link:" << endl;
 		rlink.print_errs();
 	}
-	else   									  // error, finish
+	else   									    // error, finish
 	{
 		cout << "Test failed (bad value returned)" << endl;
 	}                             
@@ -67,11 +67,16 @@ double actual_speed (int rpm)
 
 void turn (char m)
 {
-	//The idea is to set maximum angle (127) and check sensor in the
-	//middle or not. Whichever comes first stops the turning.
+	//The idea is to set maximum angle (127 for 1 front wheel) and check
+	//sensor in the middle or not. Whichever comes first stops the 
+	//turning. 
+	//Need a larger rotating speed to overcome inertia of front wheel(s)
+	//which is why simply set the angle to 90 degrees won't work. Thus
+	//should allow a longer time frame by setting turning_time slightly 
+	//larger than it should.
 	
 	int turning_rpm = 100;
-	double angle_rad = 135 * (pi/180);
+	double angle_rad = 127 * (pi/180);
 	double turning_time = (angle_rad*robot_width/2)/actual_speed(turning_rpm);
 	cout<<turning_time<<endl;
 	switch (m)
@@ -107,10 +112,10 @@ void turn (char m)
 
 void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn_direction)
 {
-	//Read the current position, then decide whether to go straight, turn 
-	//slightly left or right, or raise an error because all sensors detect black
-	//line. If all sensors detect write line, call the turn function
-	//TODO Consider the use of the sensor at the tail
+	//Read the current position. Decide whether to go straight, turn 
+	//slightly left or right, or raise an error because all sensors
+	//detect black line. If all sensors detect write line, call the turn
+	//function TODO Consider the use of the sensor at the tail
 	watch.start();
 	int current_pos = current_position();
 	int count=0;
