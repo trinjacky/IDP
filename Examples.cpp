@@ -81,7 +81,7 @@ void turn (char m)
 			{
 				rlink.command(MOTOR_2_GO,turning_rpm);
 				rlink.command(MOTOR_1_GO,127+turning_rpm);
-				if (current_position()==at_the_middle)
+				if (current_position()==at_the_middle && watch.read()-turning_time>=1)
 					break;
 			}
 			watch.stop();
@@ -94,7 +94,7 @@ void turn (char m)
 			{
 				rlink.command(MOTOR_1_GO,turning_rpm);
 				rlink.command(MOTOR_2_GO,127+turning_rpm);
-				if (current_position()==at_the_middle)
+				if (current_position()==at_the_middle && watch.read()-turning_time>=1)
 					break;
 			}
 			watch.stop();
