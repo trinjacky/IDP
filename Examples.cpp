@@ -107,23 +107,17 @@ void drive_1(int time, int motor_1_r, int motor_2_r, char turn_direction)
 		}
 		else if(current_pos == left_deviation[0] || current_pos == left_deviation[1])
 		{
-			while (current_pos != at_the_middle && watch.read()<time)
-			{
 				rlink.command(MOTOR_1_GO, motor_1_r-adjust_speed_addition);
 				rlink.command(MOTOR_2_GO,motor_2_r+4*(count%5)
 							+speed_conpensation+adjust_speed_addition);
 				count++;
-			}
 		}
 		else if(current_pos == right_deviation[0] || current_pos == right_deviation[1])
 		{
-			while (current_pos != at_the_middle && watch.read()<time)
-			{
 				rlink.command(MOTOR_1_GO, motor_1_r+adjust_speed_addition);
 				rlink.command(MOTOR_2_GO,motor_2_r+4*(count%5)
 							+speed_conpensation-adjust_speed_addition);
 				count++;
-			}
 		}
 		else if(current_pos == reach_white_line)
 		{
@@ -135,7 +129,7 @@ void drive_1(int time, int motor_1_r, int motor_2_r, char turn_direction)
 		{
 			watch.stop();
 			cout<<"error occur!";
-			break;
+			continue;
 		}
 	}
 }
@@ -153,5 +147,7 @@ int main ()
 	cout<<motor_2_v<<endl;
 	double distance = 5000.0;
 	double time_1=distance/motor_1_v;
+	drive_1(time_1, motor_1_r, motor_2_r, 'L');
+	time_1 = robot_length/motor_1_v;
 	drive_1(time_1, motor_1_r, motor_2_r, 'L');
 }
