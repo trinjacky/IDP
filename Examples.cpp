@@ -97,10 +97,12 @@ void drive_1(int time, int motor_1_r, int motor_2_r, char turn_direction)
 	int count=0;
 	while(watch.read()<time)
 	{
+		current_pos = rlink.request(READ_PORT_0) & 0x07;
+		cout<<current_pos<<endl;
 		if (current_pos == at_the_middle)
 		{	
 			rlink.command(MOTOR_1_GO, motor_1_r);
-			rlink.command(MOTOR_2_GO,motor_2_r+4*(count%5)+speed_conpensation);
+			rlink.command(MOTOR_2_GO, motor_2_r+4*(count%5)+speed_conpensation);
 			count++;
 		}
 		else if(current_pos == left_deviation[0] || current_pos == left_deviation[1])
@@ -149,7 +151,7 @@ int main ()
 	double motor_2_v=motor_2_r/127.0*full_velocity;
 	cout<<motor_1_v<<endl;
 	cout<<motor_2_v<<endl;
-	double distance = 50.0;
+	double distance = 5000.0;
 	double time_1=distance/motor_1_v;
 	drive_1(time_1, motor_1_r, motor_2_r, 'L');
 }
