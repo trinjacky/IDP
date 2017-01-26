@@ -28,6 +28,11 @@ void pause(int period)
 	}
 }
 
+int current_position()
+{
+	return rlink.request(READ_PORT_0) & 0x07;
+}
+
 //void Exception_handling(int Exception_number);
 
 void check ()
@@ -61,8 +66,11 @@ double actual_speed (int rpm)
 
 void turn (char m)
 {
-	int turning_rpm = 60;
-	double angle_rad = 120 * (pi/180);
+	//The idea is to set maximum angle (115) and check sensor in the
+	//middle or not. Whichever comes first stops the turning.
+	
+	int turning_rpm = 40;
+	double angle_rad = 115 * (pi/180);
 	double turning_time = (angle_rad*robot_width/2)/actual_speed(turning_rpm);
 	switch (m)
 	{
@@ -73,6 +81,8 @@ void turn (char m)
 			{
 				rlink.command(MOTOR_2_GO,turning_rpm);
 				rlink.command(MOTOR_1_GO,127+turning_rpm);
+				if (current_position()==at_the_middle)
+					break;
 			}
 			watch.stop();
 			break;
@@ -84,6 +94,8 @@ void turn (char m)
 			{
 				rlink.command(MOTOR_1_GO,turning_rpm);
 				rlink.command(MOTOR_2_GO,127+turning_rpm);
+				if (current_position()==at_the_middle)
+					break;
 			}
 			watch.stop();
 			break;
@@ -94,11 +106,11 @@ void turn (char m)
 void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn_direction)
 {
 	watch.start();
-	int current_pos = rlink.request(READ_PORT_0) & 0x07;
+	int current_pos = current_position();
 	int count=0;
 	while(watch.read()<time)
 	{
-		current_pos = rlink.request(READ_PORT_0) & 0x07;
+		current_pos = current_position();
 		cout<<current_pos<<endl;
 		if (current_pos == at_the_middle)
 		{	
@@ -155,6 +167,6 @@ int main ()
 	double distance = 5000.0;
 	double time_1=distance/motor_1_v;
 	double time_2 = robot_length/motor_1_v;
-	drive_1(time_1, time_2, motor_1_r, motor_2_r, 'L');
+	drive_1(time_1, time_2, motor_1_r, motor_2_r, 'R');
 	drive_1(time_1, 0.0, motor_1_r, motor_2_r, 'L');
 }
