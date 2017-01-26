@@ -7,11 +7,13 @@ using namespace std;
 #define ROBOT_NUM  50                         // The id number (see below)
 robot_link  rlink;                            // datatype for the robot link
 stopwatch watch;
+//Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
 const double pi=3.1415926535897932384626;
-const int at_the_middle=0x02;
-const int left_deviation[2] = {0x03, 0x01}; 
+const int at_the_middle = 0x02;
+const int left_deviation[2] = {0x01, 0x03}; 
 const int right_deviation[2] = {0x04, 0x06};
 const int reach_white_line = 0x07;
+//const int special_case = 0x02;
 int speed_conpensation = 10;
 int adjust_speed_addition = 10;
 const double robot_length = 285;
@@ -173,4 +175,5 @@ int main ()
 	double time_2 = robot_length/motor_1_v;
 	drive_1(time_1, time_2, motor_1_r, motor_2_r, 'R');
 	drive_1(time_1, 0.0, motor_1_r, motor_2_r, 'L');
+	return 0;
 }
