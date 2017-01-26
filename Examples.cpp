@@ -91,7 +91,7 @@ void turn (char m)
 	}
 }
 
-void drive_1(int time, int motor_1_r, int motor_2_r, char turn_direction)
+void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn_direction)
 {
 	watch.start();
 	int current_pos = rlink.request(READ_PORT_0) & 0x07;
@@ -123,6 +123,14 @@ void drive_1(int time, int motor_1_r, int motor_2_r, char turn_direction)
 		else if(current_pos == reach_white_line)
 		{
 			watch.stop();
+			watch.start();
+			count = 0;
+			while (watch.read() < time_2)
+			{
+				rlink.command(MOTOR_1_GO, motor_1_r);
+				rlink.command(MOTOR_2_GO, motor_2_r+4*(count%5)+speed_conpensation);
+				count++;
+			}
 			turn(turn_direction);
 			break;
 		}
@@ -146,8 +154,7 @@ int main ()
 	cout<<motor_2_v<<endl;
 	double distance = 5000.0;
 	double time_1=distance/motor_1_v;
-	drive_1(time_1, motor_1_r, motor_2_r, 'L');
-	time_1 = robot_length/motor_1_v;
-	drive_1(time_1, motor_1_r, motor_2_r, 'L');
-	return 0;
+	double time_2 = robot_length/motor_1_v;
+	drive_1(time_1, time_2, motor_1_r, motor_2_r, 'L');
+	drive_1(time_1, 0.0, motor_1_r, motor_2_r, 'L');
 }
