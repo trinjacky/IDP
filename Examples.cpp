@@ -8,11 +8,10 @@ using namespace std;
 robot_link  rlink;                            // datatype for the robot link
 stopwatch watch;
 const double pi=3.1415926535897932384626;
-const int at_the_middle=0x02
+const int at_the_middle=0x02;
 const int left_deviation[2] = {0x03, 0x01}; 
 const int right_deviation[2] = {0x04, 0x06};
 const int reach_white_line = 0x07;
-//const int special_case = 0x02;
 int speed_conpensation = 10;
 int adjust_speed_addition = 10;
 const double robot_length = 285;
@@ -106,6 +105,10 @@ void turn (char m)
 
 void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn_direction)
 {
+	//Read the current position, then decide whether to go straight, turn 
+	//slightly left or right, or raise an error because all sensors detect black
+	//line. If all sensors detect write line, call the turn function
+	//TODO Consider the use of the sensor at the tail
 	watch.start();
 	int current_pos = current_position();
 	int count=0;
