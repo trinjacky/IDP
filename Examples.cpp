@@ -4,15 +4,14 @@ using namespace std;
 #include <stopwatch.h>
 #include <robot_link.h>
 #include <cmath>
-#define ROBOT_NUM  50                     // The id number (see below)
-robot_link  rlink;                        // datatype for the robot link
+#define ROBOT_NUM  50                         // The id number (see below)
+robot_link  rlink;                            // datatype for the robot link
 stopwatch watch;
-//Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
 const double pi=3.1415926535897932384626;
-const int at_the_middle = 0x02;
-const int left_deviation[2] = {0x01, 0x03}; 
-const int right_deviation[2] = {0x04, 0x06};
-const int reach_white_line = 0x07;
+const int at_the_middle=0x05;
+const int left_deviation[2] = {0x04, 0x06}; 
+const int right_deviation[2] = {0x03, 0x01};
+const int reach_white_line = 0x00;
 //const int special_case = 0x02;
 int speed_conpensation = 10;
 int adjust_speed_addition = 10;
@@ -29,29 +28,30 @@ void pause(int period)
 	}
 }
 
-int current_position()
-{
-	return rlink.request(READ_PORT_0) & 0x07;
-}
+int exception_handling(int Exception_number);
+int fruit_picking();
+int ramp_climbing();
+int delivery();
+int returning();
 
-//void Exception_handling(int Exception_number);
+
 
 void check ()
 {
-	if (!rlink.initialise (ROBOT_NUM))			// setup the link
+	if (!rlink.initialise (ROBOT_NUM)) // setup the link
 	{      
 		cout << "Cannot initialise link" << endl;
 		rlink.print_errs("    ");
 	}
-	int val = rlink.request (TEST_INSTRUCTION); // send test instruction
-	if (val == TEST_INSTRUCTION_RESULT)	        // check result
+	int val = rlink.request (TEST_INSTRUCTION);   // send test instruction
+	if (val == TEST_INSTRUCTION_RESULT)	      // check result
 		cout << "Test passed" << endl;
 	else if (val == REQUEST_ERROR) 
 	{
 		cout << "Fatal errors on link:" << endl;
 		rlink.print_errs();
 	}
-	else   									    // error, finish
+	else   									  // error, finish
 	{
 		cout << "Test failed (bad value returned)" << endl;
 	}                             
@@ -67,18 +67,9 @@ double actual_speed (int rpm)
 
 void turn (char m)
 {
-	//The idea is to set maximum angle (127 for 1 front wheel) and check
-	//sensor in the middle or not. Whichever comes first stops the 
-	//turning. 
-	//Need a larger rotating speed to overcome inertia of front wheel(s)
-	//which is why simply set the angle to 90 degrees won't work. Thus
-	//should allow a longer time frame by setting turning_time slightly 
-	//larger than it should.
-	
-	int turning_rpm = 100;
-	double angle_rad = 127 * (pi/180);
+	int turning_rpm = 60;
+	double angle_rad = 110 * (pi/180);
 	double turning_time = (angle_rad*robot_width/2)/actual_speed(turning_rpm);
-	cout<<turning_time<<endl;
 	switch (m)
 	{
 		case 'L':
@@ -88,8 +79,6 @@ void turn (char m)
 			{
 				rlink.command(MOTOR_2_GO,turning_rpm);
 				rlink.command(MOTOR_1_GO,127+turning_rpm);
-				if (current_position()==at_the_middle && watch.read()>=1000)
-					break;
 			}
 			watch.stop();
 			break;
@@ -101,8 +90,6 @@ void turn (char m)
 			{
 				rlink.command(MOTOR_1_GO,turning_rpm);
 				rlink.command(MOTOR_2_GO,127+turning_rpm);
-				if (current_position()==at_the_middle && watch.read()>=1000)
-					break;
 			}
 			watch.stop();
 			break;
@@ -110,18 +97,15 @@ void turn (char m)
 	}
 }
 
-void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn_direction)
+void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, 
+			char turn_direction, int &count)
 {
-	//Read the current position. Decide whether to go straight, turn 
-	//slightly left or right, or raise an error because all sensors
-	//detect black line. If all sensors detect write line, call the turn
-	//function TODO Consider the use of the sensor at the tail
 	watch.start();
-	int current_pos = current_position();
+	int current_pos = rlink.request(READ_PORT_0) & 0x07;
 	int count=0;
 	while(watch.read()<time)
 	{
-		current_pos = current_position();
+		current_pos = rlink.request(READ_PORT_0) & 0x07;
 		cout<<current_pos<<endl;
 		if (current_pos == at_the_middle)
 		{	
@@ -166,19 +150,21 @@ void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn
 	}
 }
 
-int main ()
+void go_to_first_stage(int &count)
 {
-	check();
 	int motor_1_r=90;
 	int motor_2_r=90;
 	double motor_1_v=actual_speed(motor_1_r); 
 	double motor_2_v=actual_speed(motor_2_r);
-	cout<<motor_1_v<<endl;
-	cout<<motor_2_v<<endl;
-	double distance = 10000.0;
+	double distance = 5000.0;
 	double time_1=distance/motor_1_v;
 	double time_2 = robot_length/motor_1_v;
-	drive_1(time_1, time_2, motor_1_r, motor_2_r, 'R');
-	drive_1(time_1, 0.0, motor_1_r, motor_2_r, 'L');
-	return 0;
+	drive_1(time_1, time_2, motor_1_r, motor_2_r, 'R', count);
+}
+
+int main ()
+{
+	check();
+	int count=0;
+	go_to_first_stage(count);
 }
