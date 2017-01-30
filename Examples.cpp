@@ -37,7 +37,12 @@ int current_position()
 }
 
 int exception_handling(int Exception_number);
-int fruit_picking();
+
+int fruit_picking()
+{
+	return 0;
+}
+
 int ramp_climbing();
 int delivery();
 int returning();
@@ -199,5 +204,5 @@ int main ()
 {	
 	check();
 	go_to_first_stage();
-	
+	fruit_picking();
 }
