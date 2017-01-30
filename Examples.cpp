@@ -19,6 +19,8 @@ int adjust_speed_addition = 10;
 const double robot_length = 285;
 const double robot_width = 275;
 const double full_speed=40*80*pi/60000; //in mm/ms
+const int TURN = 1;
+const int GO_AHEAD = 0;
 
 void pause(int period)
 {
@@ -114,18 +116,18 @@ void turn (char m)
 	}
 }
 
-void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn_direction)
+int drive_1(double time, double time_2, int motor_1_r, int motor_2_r, int next)
 {
 	//Read the current position. Decide whether to go straight, turn 
 	//slightly left or right, or raise an error because all sensors
 	//detect black line. If all sensors detect write line, call the turn
 	//function TODO Consider the use of the sensor at the tail
 	watch.start();
-	int current_pos = current_position();
+	int current_pos = rlink.request(READ_PORT_0) & 0x07;
 	int count=0;
 	while(watch.read()<time)
 	{
-		current_pos = current_position();
+		current_pos = rlink.request(READ_PORT_0) & 0x07;
 		cout<<current_pos<<endl;
 		if (current_pos == at_the_middle)
 		{	
@@ -147,7 +149,13 @@ void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn
 							+speed_conpensation-adjust_speed_addition);
 				count++;
 		}
-		else if(current_pos == reach_white_line)
+		else if(current_pos == reach_white_line && next == GO_AHEAD)
+		{
+			time += 1000;
+			pause(1000);
+			return 0;
+		}
+		else if(current_pos == reach_white_line && next == TURN)
 		{
 			watch.stop();
 			watch.start();
@@ -158,34 +166,38 @@ void drive_1(double time, double time_2, int motor_1_r, int motor_2_r, char turn
 				rlink.command(MOTOR_2_GO, motor_2_r+4*(count%5)+speed_conpensation);
 				count++;
 			}
-			turn(turn_direction);
-			break;
+			return 1;
 		}
 		else
 		{
 			watch.stop();
-			cout<<"error occur!";
+			cout<<"error occur!"<<endl;
 			continue;
 		}
 	}
+	return -1;
 }
 
-void go_to_first_stage(int &count)
+void go_to_first_stage()
 {
 	int motor_1_r=90;
 	int motor_2_r=90;
 	double motor_1_v=actual_speed(motor_1_r); 
-	double motor_2_v=actual_speed(motor_2_r);
+	//double motor_2_v=actual_speed(motor_2_r);
 	double distance = 5000.0;
 	double time_1=distance/motor_1_v;
 	double time_2 = robot_length/motor_1_v;
-	drive_1(time_1, time_2, motor_1_r, motor_2_r, 'R');
+	int next_move = 0;
+	next_move = drive_1(time_1, time_2, motor_1_r, motor_2_r, GO_AHEAD);
+	if (next_move != 0)
+	{
+		cout<<"error occur!"<<endl;
+	}
 }
 
 int main ()
-{
+{	
 	check();
-	int count=0;
-	go_to_first_stage(count);
-	return 0;
+	go_to_first_stage();
+	
 }
