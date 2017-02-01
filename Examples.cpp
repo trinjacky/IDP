@@ -16,7 +16,7 @@ const int reach_white_line = 0x07;
 //const int special_case = 0x02;
 int speed_conpensation = 10;
 int adjust_speed_addition = 10;
-const double robot_length = 285;
+const double robot_length = 250;
 const double robot_width = 275;
 const double full_speed=40*80*pi/60000; //in mm/ms
 const int TURN = 1;
@@ -49,7 +49,7 @@ int fruit_picking()
 int ramp_climbing();
 int delivery();
 int returning();
-int error_handling(int error_code, int motor_1_r=30, int motor_2_r=30);
+int error_handling(int error_code, int motor_1_r=157, int motor_2_r=157);
 
 
 void check ()
@@ -106,12 +106,13 @@ int turn (char m)
 				if (current_position()==at_the_middle && watch.read()>=1000)
 				{
 					cout << "Finished\n";
-					break;
+					return 0;
 				}
 			}
 			watch.stop();
-			int return_value = error_handling(1);
+			int return_value = error_handling(1, turning_rpm, turning_rpm+127);
 			return return_value;
+			break;
 		}
 		case 'R':
 		{
@@ -121,11 +122,12 @@ int turn (char m)
 				rlink.command(MOTOR_1_GO,turning_rpm);
 				rlink.command(MOTOR_2_GO,127+turning_rpm);
 				if (current_position()==at_the_middle && watch.read()>=1000)
-					break;
+					return 0;
 			}
 			watch.stop();
-			int return_value = error_handling(1);
+			int return_value = error_handling(1, turning_rpm+127, turning_rpm);
 			return return_value;
+			break;
 		}
 	}
 	cout<<"No specified direction!"<<endl;
@@ -156,7 +158,7 @@ void line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r)
 	}
 	else
 	{
-		cout<<"error occur!"<<endl;
+		//cout<<"error occur!"<<endl;
 		//error_handling();
 	}
 }
@@ -195,6 +197,7 @@ int drive_1(double time, double time_2, int motor_1_r, int motor_2_r, int count_
 void move_before_turn(int time_2, int motor_1_r, int motor_2_r)
 {
 	int count = 0;
+	watch.start();
 	while (watch.read() < time_2)
 	{	
 		line_follow(current_position(), count, motor_1_r, motor_2_r);
@@ -209,9 +212,16 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 	while(watch.read()<time)
 	{
 		if (current_position()!=0 || watch.read()<5000)
+		{
+			count = 0;
 			line_follow(current_position(),count,motor_1_r,motor_2_r);
+		}
 		else
+		{
+			count = 0;
 			line_follow(at_the_middle,count,motor_1_r,motor_2_r);
+		}
+			
 		if(current_position() == reach_white_line && line_passed < count_line)
 		{
 			line_passed ++;
@@ -241,7 +251,7 @@ void go_to_first_stage()
 	int motor_2_r=90;
 	double motor_1_v=actual_speed(motor_1_r); 
 	//double motor_2_v=actual_speed(motor_2_r);
-	double distance = 1920.0;
+	double distance = 2300.0;
 	double time_1=distance/motor_1_v;
 	double time_2 = robot_length/motor_1_v;
 	int next_move = 0;
@@ -269,6 +279,7 @@ void go_to_first_stage()
 
 int error_handling(int error_code, int motor_1_r, int motor_2_r)
 {
+	cout<<"entered the error handling!"<<endl;
 	int count = 0;
 	double time = robot_length/actual_speed(motor_1_r);
 	switch (error_code)
@@ -281,7 +292,7 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 				line_follow(current_position(), count, motor_1_r, motor_2_r);
 			}
 			if (current_position()==reach_white_line) return 1;
-			else error_handling(1, -motor_1_r, -motor_2_r);
+			else error_handling(1, motor_1_r-127, motor_2_r-127);
 		}
 		case 3:
 		{
@@ -292,7 +303,7 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 				rlink.command(MOTOR_1_GO,motor_2_r);
 			}
 			if (current_position()==at_the_middle) return 1;
-			else error_handling(1, -motor_1_r, -motor_2_r);
+			else error_handling(1, motor_1_r-127, motor_2_r-127);
 		}
 	}
 	return 0;
