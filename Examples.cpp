@@ -3,7 +3,6 @@ using namespace std;
 #include <robot_instr.h>
 #include <stopwatch.h>
 #include <robot_link.h>
-#include <cmath>
 #include <delay.h>
 #define ROBOT_NUM  50                     // The id number (see below)
 robot_link  rlink;                        // datatype for the robot link
@@ -202,6 +201,40 @@ void move_before_turn(int time_2, int motor_1_r, int motor_2_r)
 	}
 }
 
+int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int count_line)
+{
+	watch.start();
+	int count = 0;
+	int line_passed = 0;
+	while(watch.read()<time)
+	{
+		if (current_position()!=0 || watch.read()<5000)
+			line_follow(current_position(),count,motor_1_r,motor_2_r);
+		else
+			line_follow(at_the_middle,count,motor_1_r,motor_2_r);
+		if(current_position() == reach_white_line && line_passed < count_line)
+		{
+			line_passed ++;
+			cout << line_passed << endl;
+			if (line_passed <= count_line-1)
+				delay(1000);
+		}
+		if(line_passed >= count_line)
+		{
+			watch.stop();
+			watch.start();
+			cout << "READY TO TURN" << endl;
+				int count = 0;
+			while (watch.read() < time_2)
+			{	
+				line_follow(current_position(), count, motor_1_r, motor_2_r);
+			}		
+			return 1;
+		}
+	}
+	return -1;
+}
+
 void go_to_first_stage()
 {
 	int motor_1_r=90;
@@ -219,10 +252,9 @@ void go_to_first_stage()
 		move_before_turn(time_2, 90, 90);
 		turn('L');
 	}
-	next_move = drive_1(time_1, time_2, motor_1_r, motor_2_r, 2);
+	next_move = dark_line(time_1, time_2, motor_1_r, motor_2_r, 2);
 	if (next_move==1)
 	{
-		move_before_turn(time_2, 90, 90);
 		turn('L');
 	}
 	next_move = drive_1(time_1, time_2, motor_1_r, motor_2_r, 3);
