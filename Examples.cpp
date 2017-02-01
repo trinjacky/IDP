@@ -10,8 +10,8 @@ stopwatch watch;
 //Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
 const double pi=3.1415926535897932384626;
 const int at_the_middle = 0x02;
-const int left_deviation[2] = {0x01, 0x03}; 
-const int right_deviation[2] = {0x04, 0x06};
+const int right_deviation[2] = {0x01, 0x03}; 
+const int left_deviation[2] = {0x04, 0x06};
 const int reach_white_line = 0x07;
 //const int special_case = 0x02;
 int speed_conpensation = 10;
@@ -49,7 +49,7 @@ int fruit_picking()
 int ramp_climbing();
 int delivery();
 int returning();
-int error_handling(int error_code, int motor_1_r=157, int motor_2_r=157);
+int error_handling(int error_code, int motor_1_r, int motor_2_r);
 
 
 void check ()
@@ -110,7 +110,7 @@ int turn (char m)
 				}
 			}
 			watch.stop();
-			int return_value = error_handling(1, turning_rpm, turning_rpm+127);
+			int return_value = error_handling(3, turning_rpm, turning_rpm+127);
 			return return_value;
 			break;
 		}
@@ -125,7 +125,7 @@ int turn (char m)
 					return 0;
 			}
 			watch.stop();
-			int return_value = error_handling(1, turning_rpm+127, turning_rpm);
+			int return_value = error_handling(3, turning_rpm+127, turning_rpm);
 			return return_value;
 			break;
 		}
@@ -142,18 +142,32 @@ void line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r)
 		rlink.command(MOTOR_2_GO, motor_2_r+3.5*(count%5)+speed_conpensation);
 		count++;
 	}
-	else if(current_pos == left_deviation[0] || current_pos == left_deviation[1])
+	else if(current_pos == right_deviation[0])
 	{
 		rlink.command(MOTOR_1_GO, motor_1_r-adjust_speed_addition);
 		rlink.command(MOTOR_2_GO,motor_2_r+3.5*(count%5)
 							+speed_conpensation+adjust_speed_addition);
 		count++;
 	}
-	else if(current_pos == right_deviation[0] || current_pos == right_deviation[1])
+	else if(current_pos == right_deviation[1])
+	{
+		rlink.command(MOTOR_1_GO, motor_1_r-adjust_speed_addition/2);
+		rlink.command(MOTOR_2_GO,motor_2_r+3.5*(count%5)
+							+speed_conpensation+adjust_speed_addition/2);
+		count++;
+	}
+	else if(current_pos == left_deviation[0])
 	{
 		rlink.command(MOTOR_1_GO, motor_1_r+adjust_speed_addition);
 		rlink.command(MOTOR_2_GO,motor_2_r+3.5*(count%5)
 							+speed_conpensation-adjust_speed_addition);
+		count++;
+	}
+	else if(current_pos == left_deviation[1])
+	{
+		rlink.command(MOTOR_1_GO, motor_1_r+adjust_speed_addition/2);
+		rlink.command(MOTOR_2_GO,motor_2_r+3.5*(count%5)
+							+speed_conpensation-adjust_speed_addition/2);
 		count++;
 	}
 	else
@@ -190,7 +204,7 @@ int drive_1(double time, double time_2, int motor_1_r, int motor_2_r, int count_
 			return 1;
 		}
 	}
-	int return_value = error_handling(1);
+	int return_value = error_handling(1, 157, 157);
 	return return_value;
 }
 
@@ -218,8 +232,9 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 		}
 		else
 		{
-			count = 0;
+			speed_conpensation=0;
 			line_follow(at_the_middle,count,motor_1_r,motor_2_r);
+			speed_conpensation=10;
 		}
 			
 		if(current_position() == reach_white_line && line_passed < count_line)
@@ -236,9 +251,7 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 			cout << "READY TO TURN" << endl;
 				int count = 0;
 			while (watch.read() < time_2)
-			{	
-				line_follow(current_position(), count, motor_1_r, motor_2_r);
-			}		
+				line_follow(at_the_middle, count, motor_1_r, motor_2_r);
 			return 1;
 		}
 	}
@@ -275,6 +288,7 @@ void go_to_first_stage()
 	}
 	next_move = drive_1(time_1, time_2, motor_1_r, motor_2_r, 3);
 	move_before_turn(time_2, 90, 90);
+	
 }
 
 int error_handling(int error_code, int motor_1_r, int motor_2_r)
@@ -292,7 +306,7 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 				line_follow(current_position(), count, motor_1_r, motor_2_r);
 			}
 			if (current_position()==reach_white_line) return 1;
-			else error_handling(1, motor_1_r-127, motor_2_r-127);
+			else error_handling(1, motor_1_r+127, motor_2_r+127);
 		}
 		case 3:
 		{
@@ -303,7 +317,7 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 				rlink.command(MOTOR_1_GO,motor_2_r);
 			}
 			if (current_position()==at_the_middle) return 1;
-			else error_handling(1, motor_1_r-127, motor_2_r-127);
+			else error_handling(1, motor_1_r+127, motor_2_r+127);
 		}
 	}
 	return 0;
