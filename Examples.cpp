@@ -160,7 +160,7 @@ void line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r) //pa
 	}
 }
 
-int drive_1(double time, double time_2, int motor_1_r, int motor_2_r, int count_line)
+int drive_1(double time, int motor_1_r, int motor_2_r, int count_line)
 {
 	//Read the current position. Decide whether to go straight, turn 
 	//slightly left or right, or raise an error because all sensors
@@ -187,8 +187,7 @@ int drive_1(double time, double time_2, int motor_1_r, int motor_2_r, int count_
 			return 1;
 		}
 	}
-	int return_value = error_handling(1, 157, 157);
-	return return_value;
+	return error_handling(1, 157, 157);
 }
 
 void move_before_turn(int time_2, int motor_1_r, int motor_2_r)
@@ -244,7 +243,7 @@ void go_to_first_stage()
 	double time_1=distance/motor_1_v;
 	double time_2 = robot_length/motor_1_v;
 	int next_move = 0;
-	next_move = drive_1(time_1, time_2, motor_1_r, motor_2_r, 4);
+	next_move = drive_1(time_1, motor_1_r, motor_2_r, 4);
 	cout << next_move << endl;
 	if (next_move==1)
 	{
@@ -256,13 +255,13 @@ void go_to_first_stage()
 	{
 		turn('L');
 	}
-	next_move = drive_1(time_1, time_2, motor_1_r, motor_2_r, 3);
+	next_move = drive_1(time_1, motor_1_r, motor_2_r, 3);
 	if (next_move==1)
 	{
 		move_before_turn(time_2, 90, 90);
 		turn('L');	
 	}
-	next_move = drive_1(time_1, time_2, motor_1_r, motor_2_r, 3);
+	next_move = drive_1(time_1, motor_1_r, motor_2_r, 3);
 	move_before_turn(time_2, 90, 90);
 	
 }
@@ -271,7 +270,8 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 {
 	cout<<"entered the error handling!"<<endl;
 	int count = 0;
-	double time = robot_length/actual_speed(motor_1_r);
+	double time = robot_length/actual_speed(motor_1_r%127);
+	speed_conpensation=0;
 	switch (error_code)
 	{
 		case 1:
@@ -280,9 +280,18 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 			while(current_position()!=reach_white_line && watch.read()<=time)
 			{
 				line_follow(current_position(), count, motor_1_r, motor_2_r);
+				cout<<rlink.request(MOTOR_1)<<"	"<<rlink.request(MOTOR_2)<<endl;
 			}
-			if (current_position()==reach_white_line) return 1;
-			else error_handling(1, motor_1_r+127, motor_2_r+127);
+			if (current_position()==reach_white_line) 
+			{
+				return 1;
+			}
+			/*else 
+			{
+				adjust_speed_addition*=-1;
+				error_handling(1, (motor_1_r+127)%254, (motor_2_r+127)%254);
+			}*/
+			break;
 		}
 		case 2:
 		{
@@ -294,6 +303,7 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 			}
 			if (current_position()==at_the_middle) return 1;
 			else error_handling(1, motor_1_r+127, motor_2_r+127);
+			break;
 		}
 	}
 	return 0;
@@ -302,7 +312,11 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 int main ()
 {	
 	check();
-	go_to_first_stage();
-	fruit_picking();
+	int time_1 = 5000;
+	int next_move = 0;
+	cout<<next_move;
+	next_move = drive_1(time_1, 90, 90, 4);
+	//go_to_first_stage();
+	//fruit_picking();
 	return 0;
 }
