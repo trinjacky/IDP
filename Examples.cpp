@@ -7,6 +7,7 @@ using namespace std;
 #define ROBOT_NUM  50                     	 // The id number on WiFi card
 robot_link rlink;                        	 // datatype for the robot link
 stopwatch watch;
+stopwatch counter;
 const double pi=3.1415926;
 const int at_the_middle = 0x02;
 const int right_deviation[2] = {0x01, 0x03}; //Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
@@ -23,6 +24,7 @@ const int OVER_TURNED = 2;
 const int THREE_BLACK = 3;
 int speed_conpensation = 10; 				 //compensate friction difference
 int adjust_speed_addition = 10;				 //
+int previous_position;
 
 int current_position()
 {
@@ -155,8 +157,8 @@ void line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r) //pa
 	}
 	else
 	{
-		//cout<<"error occur!"<<endl;
-		//error_handling();
+		cout<<"ALL DARK"<<endl;
+		error_handling(3, 40, 40);
 	}
 }
 
@@ -169,8 +171,15 @@ int drive_1(double time, double time_2, int motor_1_r, int motor_2_r, int count_
 	watch.start();
 	int count = 0;
 	int line_passed = 0;
+	counter.start();
 	while(watch.read()<time)
 	{
+		if(counter.read()>1000)
+		{
+			previous_position = current_position();
+			counter.stop();
+			counter.start();
+		}
 		line_follow(current_position(),count,motor_1_r,motor_2_r);
 		if(current_position() == reach_white_line && line_passed < count_line)
 		{
@@ -187,6 +196,7 @@ int drive_1(double time, double time_2, int motor_1_r, int motor_2_r, int count_
 			return 1;
 		}
 	}
+	counter.stop();
 	int return_value = error_handling(1, 157, 157);
 	return return_value;
 }
@@ -283,6 +293,7 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 			}
 			if (current_position()==reach_white_line) return 1;
 			else error_handling(1, motor_1_r+127, motor_2_r+127);
+			break;
 		}
 		case 2:
 		{
@@ -294,7 +305,21 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 			}
 			if (current_position()==at_the_middle) return 1;
 			else error_handling(1, motor_1_r+127, motor_2_r+127);
+			break;
 		}
+		case 3:
+		{
+			rlink.command (BOTH_MOTORS_GO_SAME,0);
+			while(current_position()!=at_the_middle)
+			{
+				if (previous_position==right_deviation[0]||previous_position==right_deviation[1])
+					rlink.command(MOTOR_1_GO,127+motor_1_r);
+				else
+					rlink.command(MOTOR_2_GO,127+motor_2_rs);
+			}
+				return 1;
+		}
+			
 	}
 	return 0;
 }
