@@ -110,7 +110,7 @@ int turn (char m)
 				}
 			}
 			watch.stop();
-			int return_value = error_handling(3, turning_rpm, turning_rpm+127);
+			int return_value = error_handling(2, turning_rpm, turning_rpm+127);
 			return return_value;
 			break;
 		}
@@ -125,7 +125,7 @@ int turn (char m)
 					return 0;
 			}
 			watch.stop();
-			int return_value = error_handling(3, turning_rpm+127, turning_rpm);
+			int return_value = error_handling(2, turning_rpm+127, turning_rpm);
 			return return_value;
 			break;
 		}
@@ -308,7 +308,7 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 			if (current_position()==reach_white_line) return 1;
 			else error_handling(1, motor_1_r+127, motor_2_r+127);
 		}
-		case 3:
+		case 2:
 		{
 			watch.start();
 			while(current_position()!=at_the_middle && watch.read()<=time/2)
