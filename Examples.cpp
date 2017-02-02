@@ -4,39 +4,37 @@ using namespace std;
 #include <stopwatch.h>
 #include <robot_link.h>
 #include <delay.h>
-#define ROBOT_NUM  50                     // The id number (see below)
-robot_link  rlink;                        // datatype for the robot link
+#define ROBOT_NUM  50                     	 // The id number on WiFi card
+robot_link rlink;                        	 // datatype for the robot link
 stopwatch watch;
-//Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
-const double pi=3.1415926535897932384626;
+const double pi=3.1415926;
 const int at_the_middle = 0x02;
-const int right_deviation[2] = {0x01, 0x03}; 
-const int left_deviation[2] = {0x04, 0x06};
+const int right_deviation[2] = {0x01, 0x03}; //Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
+const int left_deviation[2] = {0x04, 0x06};  //Sensor LSB(1): left; MSB(3): right
 const int reach_white_line = 0x07;
 //const int special_case = 0x02;
-int speed_conpensation = 10;
-int adjust_speed_addition = 10;
-const double robot_length = 250;
+const double robot_length = 250;	 		 //select to prevent wall crash
 const double robot_width = 275;
-const double full_speed=40*80*pi/60000; //in mm/ms
+const double full_speed=40*80*pi/60000; 	 //in mm/ms
 const int TURN = 1;
 const int GO_AHEAD = 0;
 const int OVER_DRIVEN = 1;
 const int OVER_TURNED = 2;
 const int THREE_BLACK = 3;
-
-void pause(int period)
-{
-	int start = watch.read();
-	while(watch.read()-start<period)
-	{
-		continue;
-	}
-}
+int speed_conpensation = 10; 				 //compensate friction difference
+int adjust_speed_addition = 10;				 //
 
 int current_position()
 {
 	return rlink.request(READ_PORT_0) & 0x07;
+}
+
+double actual_speed (int rpm)
+{
+	if (rpm<=127)
+		return rpm/127.0*full_speed;
+	else
+		return (rpm-127)/127.0*full_speed;
 }
 
 int exception_handling(int Exception_number);
@@ -46,7 +44,6 @@ int fruit_picking()
 	return 0;
 }
 
-int ramp_climbing();
 int delivery();
 int returning();
 int error_handling(int error_code, int motor_1_r, int motor_2_r);
@@ -73,14 +70,6 @@ void check ()
 	}                             
 }
 
-double actual_speed (int rpm)
-{
-	if (rpm<=127)
-		return rpm/127.0*full_speed;
-	else
-		return (127-rpm)/127.0*full_speed;
-}
-
 int turn (char m)
 {
 	//The idea is to set maximum angle (127 for 1 front wheel) and check
@@ -90,9 +79,8 @@ int turn (char m)
 	//which is why simply set the angle to 90 degrees won't work. Thus
 	//should allow a longer time frame by setting turning_time slightly 
 	//larger than it should.
-	
 	int turning_rpm = 100;
-	double angle_rad = 130 * (pi/180);
+	double angle_rad = 127 * (pi/180);
 	double turning_time = (angle_rad*robot_width/2)/actual_speed(turning_rpm);
 	switch (m)
 	{
@@ -104,14 +92,10 @@ int turn (char m)
 				rlink.command(MOTOR_2_GO,turning_rpm);
 				rlink.command(MOTOR_1_GO,127+turning_rpm);
 				if (current_position()==at_the_middle && watch.read()>=1000)
-				{
-					cout << "Finished\n";
 					return 0;
-				}
 			}
 			watch.stop();
-			int return_value = error_handling(2, turning_rpm, turning_rpm+127);
-			return return_value;
+			return error_handling(3, turning_rpm, turning_rpm+127);
 			break;
 		}
 		case 'R':
@@ -125,8 +109,7 @@ int turn (char m)
 					return 0;
 			}
 			watch.stop();
-			int return_value = error_handling(2, turning_rpm+127, turning_rpm);
-			return return_value;
+			return error_handling(3, turning_rpm+127, turning_rpm);
 			break;
 		}
 	}
@@ -134,7 +117,7 @@ int turn (char m)
 	return 0;
 }
 
-void line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r)
+void line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r) //parameters may only be suitable for 90rpm following
 {
 	if (current_pos == at_the_middle)
 	{	
@@ -213,9 +196,7 @@ void move_before_turn(int time_2, int motor_1_r, int motor_2_r)
 	int count = 0;
 	watch.start();
 	while (watch.read() < time_2)
-	{	
 		line_follow(current_position(), count, motor_1_r, motor_2_r);
-	}
 }
 
 int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int count_line)
@@ -225,18 +206,14 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 	int line_passed = 0;
 	while(watch.read()<time)
 	{
-		if (current_position()!=0 || watch.read()<5000)
-		{
-			count = 0;
+		if (current_position()!=0 || watch.read()<5000) //white line area of blind line
 			line_follow(current_position(),count,motor_1_r,motor_2_r);
-		}
-		else
+		else    										//entered dark area
 		{
-			speed_conpensation=0;
+			speed_conpensation=0;						//not sure why but worked out best
 			line_follow(at_the_middle,count,motor_1_r,motor_2_r);
 			speed_conpensation=10;
-		}
-			
+		}			
 		if(current_position() == reach_white_line && line_passed < count_line)
 		{
 			line_passed ++;
@@ -249,7 +226,7 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 			watch.stop();
 			watch.start();
 			cout << "READY TO TURN" << endl;
-				int count = 0;
+			int count = 0;
 			while (watch.read() < time_2)
 				line_follow(at_the_middle, count, motor_1_r, motor_2_r);
 			return 1;
@@ -263,7 +240,6 @@ void go_to_first_stage()
 	int motor_1_r=90;
 	int motor_2_r=90;
 	double motor_1_v=actual_speed(motor_1_r); 
-	//double motor_2_v=actual_speed(motor_2_r);
 	double distance = 2300.0;
 	double time_1=distance/motor_1_v;
 	double time_2 = robot_length/motor_1_v;
