@@ -95,7 +95,7 @@ int turn (char m)
 					return 0;
 			}
 			watch.stop();
-			return error_handling(3, turning_rpm, turning_rpm+127);
+			return error_handling(2, turning_rpm, turning_rpm+127);
 			break;
 		}
 		case 'R':
@@ -109,7 +109,7 @@ int turn (char m)
 					return 0;
 			}
 			watch.stop();
-			return error_handling(3, turning_rpm+127, turning_rpm);
+			return error_handling(2, turning_rpm+127, turning_rpm);
 			break;
 		}
 	}
