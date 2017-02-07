@@ -22,6 +22,7 @@ const int GO_AHEAD = 0;
 const int OVER_DRIVEN = 1;
 const int OVER_TURNED = 2;
 const int THREE_BLACK = 3;
+const int fruit_location[2][4] = {{75,50,75,75},{75,50,75,75}};
 int speed_conpensation = 10; 				 //compensate friction difference
 int adjust_speed_addition = 10;				 //
 int previous_position;
@@ -41,9 +42,10 @@ double actual_speed (int rpm)
 
 int exception_handling(int Exception_number);
 
-int fruit_picking()
+void robot_stop()
 {
-	return 0;
+	rlink.command(MOTOR_1_GO, 150);
+	rlink.command(MOTOR_2_GO, 128);
 }
 
 int delivery();
@@ -119,8 +121,7 @@ int turn (char m)
 	return 0;
 }
 
-int line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r,
-				int error_case_trigger=1) //parameters may only be suitable for 90rpm following
+int line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r, int error_case_trigger=1) //parameters may only be suitable for 90rpm following
 {
 	if (current_pos == at_the_middle)
 	{	
@@ -164,6 +165,24 @@ int line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r,
 	return 0;
 }
 
+int fruit_picking(int i)
+{
+	int motor_r = 50;
+	double motor_v=actual_speed(motor_r); 
+	for (int j=0;j<4;j++)
+	{	
+		int count = 0;
+		double time = fruit_location[i][j]/motor_v;
+		watch.start();
+		while(watch.read()<time)
+			line_follow(current_position(),count,motor_r,motor_r);
+		robot_stop();
+		//Picking code starts here
+		delay(2000);
+	}
+	return 1;
+}
+
 int drive_1(double time, int motor_1_r, int motor_2_r, int count_line)
 {
 	//Read the current position. Decide whether to go straight, turn 
@@ -182,7 +201,7 @@ int drive_1(double time, int motor_1_r, int motor_2_r, int count_line)
 			counter.stop();
 			counter.start();
 		}
-		time+=line_follow(current_position(),count,motor_1_r,motor_2_r);
+		time += line_follow(current_position(),count,motor_1_r,motor_2_r);
 		if(current_position() == reach_white_line && line_passed < count_line)
 		{
 			line_passed ++;
@@ -192,14 +211,11 @@ int drive_1(double time, int motor_1_r, int motor_2_r, int count_line)
 		}
 		else if(line_passed >= count_line)
 		{
+			cout << "Passed" << endl;
 			watch.stop();
-			watch.start();
-			cout << "READY TO TURN" << endl;
 			return 1;
 		}
 	}
-	rlink.command(MOTOR_1_GO, 132);
-	rlink.command(MOTOR_2_GO, 128);
 	counter.stop();
 	//return error_handling(1, 187, 187);
 	return 0;
@@ -261,31 +277,20 @@ void go_to_first_stage()
 	double time_2 = robot_length/motor_1_v;
 	double time_dark = distance2/motor_1_v;
 	int next_move = 0;
-	next_move = drive_1(time_1, motor_1_r, motor_2_r, 4);
-	cout << next_move << endl;
+	drive_1(time_1, motor_1_r, motor_2_r, 2);
+	for (int i=0;i<=1;i++)
+		if (next_move==1)
+		{
+			robot_stop();
+			fruit_picking(i);
+			next_move = drive_1(time_1, motor_1_r, motor_2_r, 1);
+		}
 	if (next_move==1)
 	{
 		move_before_turn(time_2, 100, 100);
-		turn('L');
+		turn('L');	
 	}
 	next_move = dark_line(time_dark, time_2, motor_1_r, motor_2_r, 2);
-	if (next_move==1)
-	{
-		turn('L');
-	}
-	next_move = drive_1(time_1, motor_1_r, motor_2_r, 3);
-	if (next_move==1)
-	{
-		move_before_turn(time_2, 100, 100);
-		turn('L');	
-	}
-	next_move = drive_1(time_1, motor_1_r, motor_2_r, 3);
-	if (next_move==1)
-	{
-		move_before_turn(time_2, 100, 100);
-		turn('L');	
-	}
-	
 }
 
 int error_handling(int error_code, int motor_1_r, int motor_2_r)
@@ -358,31 +363,6 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 int main ()
 {	
 	check();
-	//int time_1 = 10000;
-	//int next_move = 0;
-	//cout<<next_move;
-	//next_move = drive_1(time_1, 90, 90, 4);
-	//go_to_first_stage();
-	//go_to_first_stage();
-	int motor_1_r=100;
-	int motor_2_r=100;
-	double motor_1_v=actual_speed(motor_1_r); 
-	double distance1 = 50.0;
-	double distance2 = 75.0;
-	double time_1 = distance1/motor_1_v;
-	//double time_2 = robot_length/motor_1_v;
-	double time_dark = distance2/motor_1_v;
-	//int next_move = 0;
-	drive_1(time_dark, motor_1_r, motor_2_r, 3);
-	delay(500);
-	drive_1(time_1, motor_1_r, motor_2_r, 3);
-	delay(500);
-	drive_1(time_dark, motor_1_r, motor_2_r, 3);
-	delay(500);
-	drive_1(time_dark, motor_1_r, motor_2_r, 3);
-	delay(500);
-	drive_1(time_dark, motor_1_r, motor_2_r, 3);
-	//drive_1(time_dark, motor_1_r, motor_2_r, 1);
-	//fruit_picking();
+	go_to_first_stage();
 	return 0;
 }
