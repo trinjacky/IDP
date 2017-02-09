@@ -17,11 +17,11 @@ const int reach_white_line = 0x07;
 const double robot_length = 250;	 		 //select to prevent wall crash
 const double robot_width = 275;
 const double full_speed=40*80*pi/60000; 	 //in mm/ms
-const int TURN = 1;
-const int GO_AHEAD = 0;
-const int OVER_DRIVEN = 1;
+//const int TURN = 1;
+//const int GO_AHEAD = 0;
+const int OVER_DRIVEN = 1; 					 //Error codes
 const int OVER_TURNED = 2;
-const int THREE_BLACK = 3;
+const int ALL_DARK = 3;
 const int fruit_location[2][4] = {{75,50,75,75},{75,50,75,75}};
 int speed_conpensation = 10; 				 //compensate friction difference
 int adjust_speed_addition = 10;				 //
@@ -53,7 +53,11 @@ void robot_stop()
 	rlink.command(MOTOR_2_GO, 135);
 }
 
-int delivery();
+int delivery()
+{
+	delay(2000);
+	return 0;
+}
 int returning();
 int error_handling(int error_code, int motor_1_r, int motor_2_r);
 
@@ -104,7 +108,7 @@ int turn (char m)
 					return 0;
 			}
 			watch.stop();
-			return error_handling(2, turning_rpm, turning_rpm+127);
+			return error_handling(OVER_TURNED, turning_rpm, turning_rpm+127);
 			break;
 		}
 		case 'R':
@@ -118,7 +122,7 @@ int turn (char m)
 					return 0;
 			}
 			watch.stop();
-			return error_handling(2, turning_rpm+127, turning_rpm);
+			return error_handling(OVER_TURNED, turning_rpm+127, turning_rpm);
 			break;
 		}
 	}
@@ -127,7 +131,7 @@ int turn (char m)
 }
 
 int line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r, 
-				int error_case_trigger=1) //parameters may only be suitable for 90rpm following
+				int error_case_trigger=1)
 {
 	if (current_pos == at_the_middle)
 	{	
@@ -166,7 +170,7 @@ int line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r,
 	else if (current_pos == 0 && error_case_trigger == 1)
 	{
 		cout<<"ALL DARK"<<endl;
-		return error_handling(3, 40, 40);
+		return error_handling(ALL_DARK, 40, 40);
 	}
 	return 0;
 }
@@ -188,10 +192,9 @@ int fruit_picking(int i)
 			else
 				current_pos=current_position();
 			time+=line_follow(current_pos,count,motor_r,motor_r);
-			cout << "line follow\n";
 		}
 		robot_stop();
-		cout<<"picking the "<<j<<"fruit"<<endl;
+		cout<<"Picking the "<<j<<"th fruit"<<endl;
 		//Picking code starts here
 		delay(2000);
 	}
@@ -232,7 +235,7 @@ int drive_1(double time, int motor_1_r, int motor_2_r, int count_line)
 		}
 	}
 	counter.stop();
-	return error_handling(1, 187, 187);
+	return error_handling(OVER_DRIVEN, 187, 187);
 	//return 0;
 }
 
@@ -257,7 +260,6 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 		{
 			speed_conpensation=5;						//not sure why but worked out best
 			line_follow(at_the_middle,count,motor_1_r,motor_2_r, 0);
-			speed_conpensation=10;
 		}			
 		if(current_position() == reach_white_line && line_passed < count_line)
 		{
@@ -270,6 +272,7 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 		{
 			watch.stop();
 			watch.start();
+			speed_conpensation=10;
 			cout << "READY TO TURN" << endl;
 			int count = 0;
 			while (watch.read() < time_2)
@@ -277,7 +280,7 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 			return 1;
 		}
 	}
-	error_handling(1, 187,187);
+	error_handling(OVER_DRIVEN,187,187);
 	return -1;
 }
 
@@ -285,7 +288,6 @@ void go_to_first_stage(int motor_1_r, int motor_2_r)
 {
 	double time_1 = calculate_time(motor_1_r, 2000.0);
 	double time_2 = calculate_time(motor_1_r, robot_length);
-	double time_dark = calculate_time(motor_1_r, 2500.0);
 	int next_move = drive_1(time_1, motor_1_r, motor_2_r, 2);
 	for (int i=0;i<=1;i++)
 	{
@@ -301,16 +303,31 @@ void go_to_first_stage(int motor_1_r, int motor_2_r)
 		move_before_turn(time_2, 100, 100);
 		turn('L');	
 	}
-	next_move = dark_line(time_dark, time_2, motor_1_r, motor_2_r, 2);
+}
+
+void go_to_second_stage(int motor_1_r, int motor_2_r, int tray)
+{
+	double time_1 = calculate_time(motor_1_r, 2000.0);
+	double time_2 = calculate_time(motor_1_r, robot_length);
+	int next_move = drive_1(time_1, motor_1_r, motor_2_r, tray);
 	if (next_move==1)
 	{
+		while(watch.read()<time_2/2)
+			line_follow(current_position(),count,motor_1_r,motor_2_r, 0);
+		robot_stop();
+		delivery();
+	}
+	next_move = drive_1(time_1, motor_1_r, motor_2_r, 3-tray);
+	if (next_move==1)
+	{
+		move_before_turn(time_2, 100, 100);
 		turn('L');	
 	}
 }
 
 int error_handling(int error_code, int motor_1_r, int motor_2_r)
 {
-	cout<<"entered the error handling!"<<endl;
+	cout<<"Entered error handling!"<<endl;
 	int count = 0;
 	double time = 500/actual_speed(motor_1_r%127);
 	speed_conpensation=0;
@@ -319,14 +336,14 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 		case 1:
 		{
 			adjust_speed_addition = -10;
-			cout<<"entered case 1"<<endl;
+			cout<<"Entered case 1: over-driven"<<endl;
 			int error_case_trigger = 0;
 			watch.start();
 			while(current_position()!=reach_white_line && watch.read()<=time)
 			{
 				line_follow(current_position(), count, motor_1_r, motor_2_r,
 				 error_case_trigger);
-				cout<<rlink.request(MOTOR_1)<<"	"<<rlink.request(MOTOR_2)<<endl;
+//				cout<<rlink.request(MOTOR_1)<<"	"<<rlink.request(MOTOR_2)<<endl;
 			}
 			adjust_speed_addition=10;
 			if (current_position()==reach_white_line) 
@@ -342,7 +359,7 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 		}
 		case 2:
 		{
-			cout<<"entered case 2"<<endl;
+			cout<<"Entered case 2: over-turned"<<endl;
 			watch.start();
 			while(current_position()!=at_the_middle && watch.read()<=time/2)
 			{
@@ -350,12 +367,13 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 				rlink.command(MOTOR_1_GO,motor_2_r);
 			}
 			if (current_position()==at_the_middle) return 1;
-			else error_handling(1, (motor_1_r+127)%254, (motor_2_r+127)%254);
+			else error_handling(OVER_DRIVEN, (motor_1_r+127)%254, (motor_2_r+127)%254);
 			break;
 		}
 		case 3:
 		{
-			rlink.command (BOTH_MOTORS_GO_SAME,0);
+			cout<<"Entered case 3: all-dark"<<endl;
+			robot_stop();
 			int start = watch.read();
 			while(current_position()!=at_the_middle)
 			{
@@ -367,7 +385,6 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 				{
 					rlink.command(MOTOR_2_GO,127+motor_2_r);
 				}
-
 			}
 			return watch.read()-start;
 		}
@@ -375,11 +392,21 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 	return 0;
 }
 
-int main ()
+int main()
 {	
 	int motor_1_r=100;
 	int motor_2_r=100;
 	check();
-	go_to_first_stage(motor_1_r, motor_2_r);
+	for (int i=1;i<=2;i++)
+	{
+		go_to_first_stage(motor_1_r, motor_2_r);
+		int next_move = dark_line(calculate_time(motor_1_r, 2500.0), calculate_time(motor_1_r, robot_length), motor_1_r, motor_2_r, 2);
+		if (next_move==1)
+			turn('L');
+		go_to_second_stage(motor_1_r, motor_2_r, i);
+		next_move = drive_1(time_1, motor_1_r, motor_2_r, 5-i);
+		if (i==1 && next_move==1)
+			turn('L');
+	}
 	return 0;
 }
