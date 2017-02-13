@@ -43,23 +43,12 @@ double calculate_time(int motor_r, double dist)
 	return dist/(actual_speed(motor_r)*1.0);
 }
 
-int exception_handling(int Exception_number);
-
 void robot_stop()
 {
 	rlink.command(MOTOR_1_GO, 135);
 	rlink.command(MOTOR_2_GO, 135);
 }
 
-int delivery()
-{
-	rlink.command(WRITE_PORT_0,0x10 bitor current_position());
-	delay(2000);
-	rlink.command(WRITE_PORT_0,0x30 bitor current_position());
-	delay(2000);
-	return 0;
-}
-int returning();
 int error_handling(int error_code, int motor_1_r, int motor_2_r);
 
 
@@ -282,43 +271,6 @@ void move_before_turn(int time_2, int motor_1_r, int motor_2_r)
 		line_follow(current_position(), count, motor_1_r, motor_2_r);
 }
 
-int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int count_line)
-{
-	watch.start();
-	int count = 0;
-	int line_passed = 0;
-	while(watch.read()<time)
-	{
-		if (current_position()!=0 || watch.read()<4000) //white line area of blind line
-			line_follow(current_position(),count,motor_1_r,motor_2_r);
-		else    										//entered dark area
-		{
-			speed_conpensation=7;						//not sure why but worked out best
-			line_follow(at_the_middle,count,motor_1_r,motor_2_r,0);
-		}			
-		if(current_position() == reach_white_line && line_passed < count_line)
-		{
-			line_passed ++;
-			cout << line_passed << endl;
-			if (line_passed <= count_line-1)
-				delay(1000);
-		}
-		if(line_passed >= count_line)
-		{
-			watch.stop();
-			watch.start();
-			speed_conpensation=10;
-			cout << "READY TO TURN" << endl;
-			int count = 0;
-			while (watch.read() < time_2)
-				line_follow(at_the_middle, count, motor_1_r, motor_2_r, 0);
-			return 1;
-		}
-	}
-	error_handling(OVER_DRIVEN,187,187);
-	return -1;
-}
-
 void go_to_first_stage(int motor_1_r, int motor_2_r, int run)
 {
 	cout<<"going to the picking stage"<<endl;
@@ -339,26 +291,6 @@ void go_to_first_stage(int motor_1_r, int motor_2_r, int run)
 			next_move = drive_1(time_1, motor_1_r, motor_2_r, 1);
 		}
 	}
-	if (next_move==1)
-	{
-		move_before_turn(time_2, 100, 100);
-		turn('L',1000);	
-	}
-}
-
-void go_to_second_stage(int motor_1_r, int motor_2_r, int tray)
-{
-	cout<<"going to the delivery stage"<<endl;
-	double time_1 = calculate_time(motor_1_r, 2000.0);
-	double time_2 = calculate_time(motor_1_r, robot_length);
-	int next_move = drive_1(time_1, motor_1_r, motor_2_r, tray);
-	if (next_move==1)
-	{
-		move_before_turn(time_2/2, 100, 100);
-		robot_stop();
-		delivery();
-	}
-	next_move = drive_1(time_1, motor_1_r, motor_2_r, 3-tray);
 	if (next_move==1)
 	{
 		move_before_turn(time_2, 100, 100);
