@@ -1,7 +1,7 @@
 This is our IDP software working directory
 
-Week 2-3 Task
+Final Week Tasks
 
-1.  Route (stage/flow)?
-2.  Adjust parameters to adapt to changes
-3.  Picking function
+1.  Positioning - Not precise enough!!
+2.  Picking - Incorporation with colour sensors? Vines?
+2.  Start Box Turning
