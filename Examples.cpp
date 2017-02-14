@@ -25,6 +25,11 @@ int speed_conpensation = 10; 				 //compensate friction difference
 int adjust_speed_addition = 10;				 //
 int previous_position;
 
+int exception_handling(int Exception_number);
+int returning();
+int error_handling(int error_code, int motor_1_r, int motor_2_r);
+void pick_up(int run);
+
 int current_position()
 {
 	return rlink.request(READ_PORT_0) & 0x07;
@@ -43,8 +48,6 @@ double calculate_time(int motor_r, double dist)
 	return dist/(actual_speed(motor_r)*1.0);
 }
 
-int exception_handling(int Exception_number);
-
 void robot_stop()
 {
 	rlink.command(MOTOR_1_GO, 135);
@@ -59,9 +62,6 @@ int delivery()
 	delay(2000);
 	return 0;
 }
-int returning();
-int error_handling(int error_code, int motor_1_r, int motor_2_r);
-
 
 void check ()
 {
@@ -207,10 +207,21 @@ int fruit_picking(int i)
 {
 	int motor_r = 50;
 	delay(2000);	 
-	for (int j=0;j<4;j++)
+	for (int j=0;j<5;j++)
 	{	
 		int count = 0;
 		int current_pos;
+		robot_stop();
+		cout<<"Picking the "<<j<<"th fruit"<<endl;
+		//Picking code starts here
+		rlink.command(WRITE_PORT_0,0x20 bitor current_position());
+		delay(2000);
+		rlink.command(WRITE_PORT_0,0x30 bitor current_position());
+		delay(2000);
+		if (1==1)
+		{
+			pick_up(i);
+		}
 		double time = calculate_time(motor_r, fruit_location[i][j]);
 		watch.start();
 		while(watch.read()<time)
@@ -221,15 +232,26 @@ int fruit_picking(int i)
 				current_pos=current_position();
 			time+=line_follow(current_pos,count,motor_r,motor_r);
 		}
-		robot_stop();
-		cout<<"Picking the "<<j<<"th fruit"<<endl;
-		//Picking code starts here
-		rlink.command(WRITE_PORT_0,0x20 bitor current_position());
-		delay(2000);
-		rlink.command(WRITE_PORT_0,0x30 bitor current_position());
-		delay(2000);
 	}
 	return 1;
+}
+
+void pick_up(int run)
+{
+	//int degrees = 45;
+	int motor_3 = 120+127;
+	double time_s=50*run;
+	cout<<time_s<<endl;
+	rlink.command(MOTOR_3_GO, motor_3);
+	delay(430+time_s);
+	rlink.command(MOTOR_3_GO, 0);
+	rlink.command(WRITE_PORT_0,0x20 bitor current_position());
+	delay(2000);
+	rlink.command(MOTOR_3_GO, motor_3-127);
+	delay(450+time_s);
+	rlink.command(MOTOR_3_GO, 0);
+	rlink.command(WRITE_PORT_0,0x30 bitor current_position());
+	delay(2000);
 }
 
 int drive_1(double time, int motor_1_r, int motor_2_r, int count_line, 
@@ -289,13 +311,13 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 	int line_passed = 0;
 	while(watch.read()<time)
 	{
-		if (current_position()!=0 || watch.read()<4000) //white line area of blind line
-			line_follow(current_position(),count,motor_1_r,motor_2_r);
-		else    										//entered dark area
+		if (line_passed==1)   							//entered dark area
 		{
-			speed_conpensation=7;						//not sure why but worked out best
+			speed_conpensation=5;						//not sure why but worked out best
 			line_follow(at_the_middle,count,motor_1_r,motor_2_r,0);
 		}			
+		else  									    	//white line area of blind line
+			line_follow(current_position(),count,motor_1_r,motor_2_r);
 		if(current_position() == reach_white_line && line_passed < count_line)
 		{
 			line_passed ++;
@@ -332,9 +354,6 @@ void go_to_first_stage(int motor_1_r, int motor_2_r, int run)
 			robot_reverse(127+50, 80);
 			robot_stop();
 			delay(2000);
-			rlink.command(WRITE_PORT_0,0x20 bitor current_position());
-			delay(2000);
-			rlink.command(WRITE_PORT_0,0x30 bitor current_position());
 			fruit_picking(i);
 			next_move = drive_1(time_1, motor_1_r, motor_2_r, 1);
 		}
@@ -351,14 +370,14 @@ void go_to_second_stage(int motor_1_r, int motor_2_r, int tray)
 	cout<<"going to the delivery stage"<<endl;
 	double time_1 = calculate_time(motor_1_r, 2000.0);
 	double time_2 = calculate_time(motor_1_r, robot_length);
-	int next_move = drive_1(time_1, motor_1_r, motor_2_r, tray);
+	int next_move = drive_1(time_1, motor_1_r, motor_2_r, 3-tray);
 	if (next_move==1)
 	{
-		move_before_turn(time_2/2, 100, 100);
+		move_before_turn(time_2/2.5, 100, 100);
 		robot_stop();
 		delivery();
 	}
-	next_move = drive_1(time_1, motor_1_r, motor_2_r, 3-tray);
+	next_move = drive_1(time_1, motor_1_r, motor_2_r, tray);
 	if (next_move==1)
 	{
 		move_before_turn(time_2, 100, 100);
@@ -453,7 +472,7 @@ int main()
 	{
 		watch.start();
 		go_to_first_stage(motor_1_r, motor_2_r,i);
-		int next_move = dark_line(calculate_time(motor_1_r, 2500.0), calculate_time(motor_1_r, robot_length), motor_1_r, motor_2_r, 2);
+		/*int next_move = dark_line(calculate_time(motor_1_r, 2500.0), calculate_time(motor_1_r, robot_length), motor_1_r, motor_2_r, 2);
 		if (next_move==1)
 			turn('L',1000);
 		go_to_second_stage(motor_1_r, motor_2_r, i);
@@ -462,7 +481,7 @@ int main()
 		if (i==1 && next_move==1)
 		{
 			turn('L',2000);
-		}
+		}*/
 	}		
 	return 0;
 }
