@@ -11,9 +11,8 @@ stopwatch counter;
 const double pi=3.1415926;
 const int at_the_middle = 0x02;
 const int right_deviation[2] = {0x01, 0x03}; //Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
-const int left_deviation[2] = {0x04, 0x06};  //Sensor LSB(1): left; MSB(3): right
+const int left_deviation[2] = {0x04, 0x06};  //Sensor LSB(1): left; MSB(3): right;
 const int reach_white_line = 0x07;
-//const int special_case = 0x02;
 const double robot_length = 265;	 		 //select to prevent wall crash
 const double robot_width = 270;
 const double full_speed=40*80*pi/60000; 	 //in mm/ms
@@ -26,11 +25,9 @@ const double rev_dist[2] = {80,78};
 const double pos_factor[2] = {1.2,1.11};
 
 int speed_compensation = 7; 				 //compensate friction difference
-int adjust_speed_addition = 10;				 //
+int adjust_speed_addition = 10;				 
 int previous_position;
 
-int exception_handling(int Exception_number);
-int returning();
 int error_handling(int error_code, int motor_1_r, int motor_2_r);
 void pick_up(int run);
 
@@ -60,9 +57,9 @@ void robot_stop()
 
 int delivery()
 {
-	rlink.command(WRITE_PORT_0,0x10 bitor current_position());
+	rlink.command(WRITE_PORT_0,0x10 bitor current_position()); //tray DOWN
 	delay(2000);
-	rlink.command(WRITE_PORT_0,0x30 bitor current_position());
+	rlink.command(WRITE_PORT_0,0x30 bitor current_position()); //tray UP
 	delay(2000);
 	return 0;
 }
@@ -215,30 +212,52 @@ int fruit_picking(int i)
 	delay(2000);
 	for (int j=0;j<5;j++)
 	{	
+		bool IS_GREEN = 0;
 		int count = 0;
 		int current_pos;
 		robot_stop();
 		cout<<"Picking the "<<j<<"th fruit"<<endl;
-		//Picking code starts here
-		rlink.command(WRITE_PORT_0,0x20 bitor current_position());
-		delay(2000);
-		rlink.command(WRITE_PORT_0,0x30 bitor current_position());
-		delay(2000);
-		if (1==1)
+		//Scanning
+		rlink.command(MOTOR_3_GO, 120); //claw OPEN
+		delay(500);						    	//should be fully open
+		rlink.command(MOTOR_3_GO, 0);			//stops opening
+		rlink.command(WRITE_PORT_0,0x20 bitor current_position()); //arm DOWN
+		delay(1000);
+		watch.start();
+		while (IS_GREEN==0 && watch.read()<1000)
+			if (1==0) //(rlink.command(READ_PORT_0) & 0x0? == threshold)
+			{
+				IS_GREEN = 1;
+				break;
+			}
+		if (IS_GREEN)	//once the result is green
 		{
+			rlink.command(WRITE_PORT_0,0x30 bitor current_position());	//arm UP
+			delay(2000);
+		}
+		else 		    //result is red
+		{		
+			rlink.command(WRITE_PORT_0,0x30 bitor current_position()); //arm UP
+			delay(2000);
 			pick_up(i);
 		}
-		double time = calculate_time(motor_r, fruit_location[i][j]*pos_factor[i]);
-		watch.start();
-		while(watch.read()<time)
+		//Moving on to next fruit
+		if (j<4)
 		{
-			if(watch.read()<500)
-				current_pos=at_the_middle;
-			else
-				current_pos=current_position();
-			time+=line_follow(current_pos,count,motor_r,motor_r);
-		}
+			speed_compensation = 5;
+			double time = calculate_time(motor_r, fruit_location[i][j]*pos_factor[i]);
+			watch.start();
+			while(watch.read()<time)
+			{
+				if(watch.read()<500)
+					current_pos=at_the_middle;
+				else
+					current_pos=current_position();
+				time+=line_follow(current_pos,count,motor_r,motor_r);
+			}
+		}		
 	}
+	speed_compensation = 7;
 	return 1;
 }
 
@@ -247,16 +266,15 @@ void pick_up(int run)
 	//int degrees = 45;
 	int motor_3 = 120+127;
 	double time_s=50*run;
-	cout<<time_s<<endl;
-	rlink.command(MOTOR_3_GO, motor_3);
-	delay(430+time_s);
-	rlink.command(MOTOR_3_GO, 0);
-	rlink.command(WRITE_PORT_0,0x20 bitor current_position());
+	rlink.command(MOTOR_3_GO, motor_3);	//claw CLOSE
+	delay(1100+time_s);
+	rlink.command(MOTOR_3_GO, 0);		//stops closing
+	rlink.command(WRITE_PORT_0,0x20 bitor current_position()); //arm DOWN
 	delay(2000);
-	rlink.command(MOTOR_3_GO, motor_3-127);
-	delay(450+time_s);
-	rlink.command(MOTOR_3_GO, 0);
-	rlink.command(WRITE_PORT_0,0x30 bitor current_position());
+	rlink.command(MOTOR_3_GO, motor_3-127); //claw OPEN
+	delay(800);						    	//should be fully open
+	rlink.command(MOTOR_3_GO, 0);			//stops opening
+	rlink.command(WRITE_PORT_0,0x30 bitor current_position());	//arm UP
 	delay(2000);
 }
 
@@ -279,7 +297,7 @@ int drive_1(double time, int motor_1_r, int motor_2_r, int count_line,
 			counter.stop();
 			counter.start();
 		}
-		if ((watch.read()>2000&&watch.read()<7000)||(line_passed==1))
+		if ((watch.read()>2000&&watch.read()<7000)||(line_passed==1))//for the use of dark line
 			time += line_follow(current_position(),count,motor_1_r,motor_2_r,trigger_handling);
 		else
 			time += line_follow(current_position(),count,motor_1_r,motor_2_r);
@@ -299,15 +317,6 @@ int drive_1(double time, int motor_1_r, int motor_2_r, int count_line,
 	}
 	counter.stop();
 	return error_handling(OVER_DRIVEN, 187, 187);
-	//return 0;
-}
-
-void move_before_turn(int time_2, int motor_1_r, int motor_2_r)
-{
-	int count = 0;
-	watch.start();
-	while (watch.read() < time_2)
-		line_follow(current_position(), count, motor_1_r, motor_2_r);
 }
 
 int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int count_line)
@@ -345,6 +354,14 @@ int dark_line (double time, double time_2, int motor_1_r, int motor_2_r, int cou
 	}
 	error_handling(OVER_DRIVEN,187,187);
 	return -1;
+}
+
+void move_before_turn(int time_2, int motor_1_r, int motor_2_r)
+{
+	int count = 0;
+	watch.start();
+	while (watch.read() < time_2)
+		line_follow(current_position(), count, motor_1_r, motor_2_r);
 }
 
 void go_to_first_stage(int motor_1_r, int motor_2_r, int run)
@@ -478,6 +495,17 @@ int main()
 	{
 		watch.start();
 		go_to_first_stage(motor_1_r, motor_2_r,i);
-	}		
+		/*int next_move = dark_line(calculate_time(motor_1_r, 2500.0), calculate_time(motor_1_r, robot_length), motor_1_r, motor_2_r, 2);
+		if (next_move==1)
+			turn('L',1000);
+		go_to_second_stage(motor_1_r, motor_2_r, i);
+		next_move = drive_1(calculate_time(motor_1_r, 2300), motor_1_r, motor_2_r, 5-i, 0);
+		move_before_turn(calculate_time(motor_1_r, robot_length),motor_1_r, motor_2_r);
+		if (i==1 && next_move==1)
+		{
+			turn('L',2000);
+		}*/
+	}	
+	robot_stop();	
 	return 0;
 }
