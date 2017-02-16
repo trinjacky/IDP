@@ -180,6 +180,7 @@ int line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r,
 
 void robot_reverse(int motor_r, double distance)
 {
+	rlink.command(WRITE_PORT_1,0x02);
 	adjust_speed_addition = -3;
 	int time = calculate_time(motor_r%127, distance);
 	watch.start();
@@ -202,19 +203,27 @@ void fruit_picking(int i)
 		robot_stop();
 		cout<<"Picking the "<<j<<"th fruit"<<endl;
 		//Scanning
+		rlink.command(WRITE_PORT_1,0x40);
 		rlink.command(WRITE_PORT_0,0x20 bitor current_position()); //arm DOWN
 		delay(1000);
 		watch.start();
 		while (IS_GREEN==0 && watch.read()<1000) //what about lowest tomato?
 			if (1==0) 			//(rlink.command(READ_PORT_0) & 0x0? >= threshold)
+			{
+				rlink.command(WRITE_PORT_1,0x10);
 				IS_GREEN = 1;	//stop and move on (tried not to add break)
+			}
 		rlink.command(WRITE_PORT_0,0x30 bitor current_position()); //arm UP
 		delay(2000);
 		
-		if (!IS_GREEN)			//result is red	
+		if (!IS_GREEN)
+		{
+			rlink.command(WRITE_PORT_1,0x20);	//result is red	
 			pick_up(i,j);
+		}
 		if (j<4)				//Moving on to next fruit
 		{
+			rlink.command(WRITE_PORT_1,0x02);
 			speed_compensation = 5;
 			double time = calculate_time(motor_r, fruit_location[i][j]*pos_factor[i]);
 			watch.start();
@@ -271,6 +280,7 @@ int drive(double time, int motor_1_r, int motor_2_r, int count_line,
 	int count = 0;
 	int line_passed = 0;
 	counter.start();
+	rlink.command(WRITE_PORT_1,0x80);
 	while(watch.read()<time)
 	{
 		if(counter.read()>100)
@@ -381,6 +391,7 @@ void go_to_second_stage(int motor_1_r, int motor_2_r, int tray)
 	int next_move = drive(time_1, motor_1_r, motor_2_r, 3-tray);
 	if (next_move==1)
 	{
+		rlink.command(WRITE_PORT_1,12-4*tray);
 		move_before_turn(time_2/2.5, 100, 100);
 		robot_stop();
 		delivery();
@@ -395,6 +406,7 @@ void go_to_second_stage(int motor_1_r, int motor_2_r, int tray)
 
 int error_handling(int error_code, int motor_1_r, int motor_2_r)
 {
+	rlink.command(WRITE_PORT_1,0x01);
 	cout<<"Entered error handling!"<<endl;
 	int count = 0;
 	double time = 500/actual_speed(motor_1_r%127);
@@ -478,7 +490,7 @@ int main()
 		if (next_move==1)
 			turn('L',1000);
 		go_to_second_stage(motor_1_r, motor_2_r, i);
-		next_move = drive(calculate_time(motor_1_r, 2300), motor_1_r, motor_2_r, 5-i, 0); //table1:7-2i
+		next_move = drive(calculate_time(motor_1_r, 2300), motor_1_r, motor_2_r, 7-2*i, 0); 
 		move_before_turn(calculate_time(motor_1_r, robot_length),motor_1_r, motor_2_r);
 		if (i==1 && next_move==1)
 			turn('L',2500);
