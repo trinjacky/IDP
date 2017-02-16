@@ -19,7 +19,6 @@ const double full_speed=40*80*pi/60000; 	 //in mm/ms
 const int OVER_DRIVEN = 1; 					 //Error codes
 const int OVER_TURNED = 2;
 const int ALL_DARK = 3;
-//const int fruit_location[2][4] = {{75,60,85,85},{90,80,85,85}};
 const int fruit_location[2][4] = {{70,50,75,75},{70,50,75,75}};
 const double rev_dist[2] = {70,70};
 const double pos_factor[2] = {1.2,1.2};
@@ -289,7 +288,7 @@ int drive(double time, int motor_1_r, int motor_2_r, int count_line,
 			line_passed ++;
 			cout << line_passed << endl;
 			if (line_passed <= count_line-1)
-				delay(800);
+				delay(1500);
 		}
 		if(line_passed >= count_line)
 		{
@@ -322,7 +321,7 @@ int dark_line(int motor_1_r, int motor_2_r, int count_line)
 			line_passed ++;
 			cout << line_passed << endl;
 			if (line_passed <= count_line-1)
-				delay(800);
+				delay(1000);
 		}
 		if(line_passed >= count_line)
 		{
@@ -483,9 +482,8 @@ int main()
 		move_before_turn(calculate_time(motor_1_r, robot_length),motor_1_r, motor_2_r);
 		if (i==1 && next_move==1)
 			turn('L',2500);
+		watch.stop();
 	}
-	watch.stop();
-	counter.stop();
 	robot_stop();
 	//pick_up(2);
 	return 0;
