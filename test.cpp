@@ -4,6 +4,8 @@ using namespace std;
 #include <stopwatch.h>
 #include <robot_link.h>
 #include <delay.h>
+#include <fstream>
+ofstream fout;
 #define ROBOT_NUM  50                     	 // The id number on WiFi card
 robot_link rlink;                        	 // datatype for the robot link
 stopwatch watch;
@@ -12,7 +14,7 @@ const double pi=3.1415926;
 const int at_the_middle = 0x02;
 const int right_deviation[2] = {0x01, 0x03}; //Line-following LED: ON(BLACK)=0; OFF(WHITE)=1
 const int left_deviation[2] = {0x04, 0x06};  //Sensor LSB(1): left; MSB(3): right;
-const int reach_white_line = 0x07;			 //
+const int reach_white_line = 0x07;			 
 const double robot_length = 265;	 		 //select to prevent wall crash; 3:265;
 const double robot_width = 270;
 const double full_speed=40*80*pi/60000; 	 //in mm/ms
@@ -20,15 +22,21 @@ const int OVER_DRIVEN = 1; 					 //Error codes
 const int OVER_TURNED = 2;
 const int ALL_DARK = 3;
 const int fruit_location[2][4] = {{70,50,75,75},{70,50,75,75}};
+void claw(double time, int motor_3_r, char c);
+
+//Things needed to be calibrated
+//Positioning, motor 3 time, color sensor threshold and position
+//Colour sensor: Green LED TOP!!!
 const double rev_dist[2] = {70,70};
 const double pos_factor[2] = {1.2,1.2};
+const int threshold[3] = {100,110,150};
 
 int speed_compensation = 7; 				 //compensate friction difference
 int adjust_speed_addition = 10;				 
 int previous_position;
 
 int error_handling(int error_code, int motor_1_r, int motor_2_r);
-void pick_up(int run, int fruit);
+void pick_up(int run, int vine, int fruit);
 
 int current_position()
 {
@@ -180,7 +188,7 @@ int line_follow(int current_pos, int &count, int motor_1_r, int motor_2_r,
 
 void robot_reverse(int motor_r, double distance)
 {
-	rlink.command(WRITE_PORT_1,0x02);
+//	rlink.command(WRITE_PORT_1,0x02);
 	adjust_speed_addition = -3;
 	int time = calculate_time(motor_r%127, distance);
 	watch.start();
@@ -190,50 +198,82 @@ void robot_reverse(int motor_r, double distance)
 	rlink.command(MOTOR_1_GO, 8);
 	rlink.command(MOTOR_2_GO, 8);
 	adjust_speed_addition = 10;
-	//robot.stop();
 	watch.stop();
-	delay(2000);
-}
-
-bool scan()
-{
-	bool IS_GREEN = false;
-	rlink.command(WRITE_PORT_1,0x40);
-	rlink.command(WRITE_PORT_0,0x20 bitor current_position()); //arm DOWN
 	delay(1000);
-	watch.start();
-	while (!IS_GREEN && watch.read()<1000)   //what about lowest tomato?
-		if (1==0) 			                 //(rlink.request(ADC0) >= threshold)
-		{
-			rlink.command(WRITE_PORT_1,0x10);
-			IS_GREEN = true;	//stop and move on (tried not to add break)
-		}
-	rlink.command(WRITE_PORT_0,0x30 bitor current_position()); //arm UP
-	watch.stop();
-	delay(2000);
-	return IS_GREEN;
 }
 
-void fruit_picking(int i)
+bool scan(int run, int fruit)
+{
+	bool val = false;
+	int current_color = 0;
+	int cutoff_time;
+	if (fruit==1 && run==1)
+		cutoff_time = 2000;
+	else if (fruit==0 && run==0)
+		cutoff_time = 1200;
+	else
+		cutoff_time = 1800;
+//	rlink.command(WRITE_PORT_1,0x40);
+	if (run==0)
+		rlink.command(WRITE_PORT_0,0xE0 bitor current_position()); //arm DOWN + sensor ON
+	else if (run==1)
+		rlink.command(WRITE_PORT_0,0x60 bitor current_position());
+	else
+		rlink.command(WRITE_PORT_0,0xA0 bitor current_position());
+	watch.start();
+	while (!val && watch.read()<4000)   //what about lowest tomato?
+	{
+		current_color = rlink.request(ADC0);
+		fout << current_color << endl;
+		if (watch.read() > cutoff_time && current_color >= threshold[run])
+		{
+			cout<<"DETECTED"<<endl;
+			val = true;
+		}
+	}
+	rlink.command(WRITE_PORT_0,0x30 bitor current_position()); //arm UP + sensor OFF
+	watch.stop();
+	delay(2000);
+	return val;
+}
+
+void fruit_picking(int i, int loop)
 {
 	int motor_r = 100;
+	int count = 0;
+	bool IS_TOMATO, IS_GREEN, IS_RED(false);
 	for (int j=0;j<5;j++)
 	{
-		int count = 0;
+		claw(500,120,'O');
 		int current_pos;
+		fout << "---" << endl;
 		cout<<"Picking the "<<j<<"th fruit"<<endl;
 
-		bool IS_GREEN = scan();
-		
-		if (!IS_GREEN)
+		IS_TOMATO = scan(0,j);
+		if (IS_TOMATO)
 		{
-			rlink.command(WRITE_PORT_1,0x20);	//result is red	
-			pick_up(i,j);
+			IS_RED = false;
+			IS_GREEN = scan(1,j);
+			if (IS_GREEN && loop == 1)
+				IS_RED = scan(2,j);
+			if (!IS_GREEN || IS_RED)
+			{
+				rlink.command(WRITE_PORT_1,~(0x0c^(4*(loop-1))));	//result is red	
+				pick_up(loop,i,j);
+			}
+			else
+			{
+				rlink.command(WRITE_PORT_1,~(0x14^(4*(loop-1))));
+			}
 		}
+		else
+		{
+			rlink.command(WRITE_PORT_1,~(0x44^(4*(loop-1))));
+		}
+		
 		
 		if (j<4)								//Moving on to next fruit
 		{
-			rlink.command(WRITE_PORT_1,0x02);
 			double time = calculate_time(motor_r, fruit_location[i][j]*pos_factor[i]);
 			watch.start();
 			while(watch.read()<time)
@@ -247,37 +287,43 @@ void fruit_picking(int i)
 			robot_stop();
 			watch.stop();
 		}		
+		rlink.command(WRITE_PORT_1,~(0x04^(4*(loop-1))));
 	}
 }
 
-void pick_up(int run, int fruit)
+void claw(double time, int motor_3_r, char c)
+{
+	switch(c)
+	{
+		case 'O':
+			rlink.command(MOTOR_3_GO, motor_3_r+127); //claw OPEN
+			delay(time);						   	  //should be fully open
+			rlink.command(MOTOR_3_GO, 0);			  //stops opening
+			break;
+		case 'C':
+			rlink.command(MOTOR_3_GO, motor_3_r); 	  //claw CLOSE
+			delay(time);				  			  //closing time (empirical?)
+			rlink.command(MOTOR_3_GO, 0);			  //stops closing
+			break;
+	}
+}
+
+void pick_up(int run, int vine, int fruit)
 {
 	rlink.command(RAMP_TIME, 0);
 	int motor_3_r = 127;
-	int cal(3);
-	if (fruit==0)
-		cal = 1;
 	rlink.command(MOTOR_3_GO, 0);
-	double time_s = 1350+run*100;		  //400ms/45deg for 20rpm!
-	while(cal<=3)
+	double time_s = 900+run*400;		  	  
+	delay(500);
+	if (run==1 && vine==0 && fruit==0)
 	{
-		rlink.command(MOTOR_3_GO, motor_3_r); 		//claw CLOSE
-		delay(time_s);				  			 	//closing time (empirical?)
-		rlink.command(MOTOR_3_GO, 0);			  	//stops closing
-		if (cal<3)
-		{
-			delay(500);
-			rlink.command(MOTOR_3_GO, motor_3_r+127); //claw OPEN
-			delay(time_s);						   	  //should be fully open
-			rlink.command(MOTOR_3_GO, 0);			  //stops opening
-		}
-		cal++;
+		claw(time_s,motor_3_r,'C');
+		claw(time_s,motor_3_r,'O');
 	}
+	claw(time_s,motor_3_r,'C');
 	rlink.command(WRITE_PORT_0,0x20 bitor current_position()); //arm DOWN
 	delay(2000);
-	rlink.command(MOTOR_3_GO, motor_3_r+127); //claw OPEN
-	delay(time_s);						   	  //should be fully open
-	rlink.command(MOTOR_3_GO, 0);			  //stops opening
+	claw(time_s,motor_3_r,'O');
 	rlink.command(WRITE_PORT_0,0x30 bitor current_position()); //arm UP
 	delay(2000);	
 }
@@ -289,7 +335,6 @@ int drive(double time, int motor_1_r, int motor_2_r, int count_line,
 	int count = 0;
 	int line_passed = 0;
 	counter.start();
-	rlink.command(WRITE_PORT_1,0x80);
 	while(watch.read()<time)
 	{
 		if(counter.read()>100)
@@ -328,12 +373,12 @@ int dark_line(int motor_1_r, int motor_2_r, int count_line)
 	double time_2 = calculate_time(motor_1_r, robot_length); 
 	while(watch.read()<time)
 	{
-		if (line_passed==1)   							//entered dark area
+		if (line_passed==1)   		//entered dark area
 		{
-			speed_compensation=5;						//not sure why but worked out best
+			speed_compensation=5;	//not sure why but worked out best
 			line_follow(at_the_middle,count,motor_1_r,motor_2_r,0);
 		}			
-		else  									    	//white line area of blind line
+		else  						//white line area of blind line
 			line_follow(current_position(),count,motor_1_r,motor_2_r);
 		if(current_position() == reach_white_line && line_passed < count_line)
 		{
@@ -373,12 +418,12 @@ void go_to_first_stage(int motor_1_r, int motor_2_r, int run)
 	cout<<"Going to the picking stage"<<endl;
 	double time_1 = calculate_time(motor_1_r, 1500.0);
 	double time_2 = calculate_time(motor_1_r, robot_length);
-	int next_move = drive(time_1, motor_1_r, motor_2_r, 3-run);
-	for (int i=0;i<=1;i++)
+	int next_move = drive(time_1, motor_1_r, motor_2_r, 2); //3-run
+	for (int vine=0;vine<=1;vine++)
 		if (next_move==1)
 		{
-			robot_reverse(127+50, rev_dist[i]);
-			fruit_picking(i);
+			robot_reverse(127+50, rev_dist[vine]);
+			fruit_picking(vine,run);
 			next_move = drive(time_1, motor_1_r, motor_2_r, 1);
 		}
 	if (next_move==1)
@@ -396,7 +441,6 @@ void go_to_second_stage(int motor_1_r, int motor_2_r, int tray)
 	int next_move = drive(time_1, motor_1_r, motor_2_r, 3-tray);
 	if (next_move==1)
 	{
-		rlink.command(WRITE_PORT_1,12-4*tray);
 		move_before_turn(time_2/2.5, 100, 100);
 		robot_stop();
 		delivery();
@@ -411,7 +455,6 @@ void go_to_second_stage(int motor_1_r, int motor_2_r, int tray)
 
 int error_handling(int error_code, int motor_1_r, int motor_2_r)
 {
-	rlink.command(WRITE_PORT_1,0x01);
 	cout<<"Entered error handling!"<<endl;
 	int count = 0;
 	double time = 500/actual_speed(motor_1_r%127);
@@ -484,27 +527,29 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 int main()
 {	
 	check();
-	watch.start();
-	while (1==1)
-		cout << "time: " << watch.read()/1000 << "  value: " << rlink.request(ADC0) << endl;
-	/*int motor_1_r=100;
+	int motor_1_r=100;
 	int motor_2_r=100;
 	int next_move;
-	for (int i=1;i<=2;i++)
+	fout.open("Results.txt");
+	for (int loop=1;loop<=2;loop++)
 	{
+		if (loop==1)
+			rlink.command(WRITE_PORT_1,~0x04);
+		else
+			rlink.command(WRITE_PORT_1,~0x00);
 		watch.start();
-		go_to_first_stage(motor_1_r, motor_2_r,i);
+		go_to_first_stage(motor_1_r, motor_2_r,loop);
 		next_move = dark_line(motor_1_r, motor_2_r, 2);
 		if (next_move==1)
 			turn('L',1000);
-		go_to_second_stage(motor_1_r, motor_2_r, i);
-		next_move = drive(calculate_time(motor_1_r, 2300), motor_1_r, motor_2_r, 7-2*i, 0); 
+		go_to_second_stage(motor_1_r, motor_2_r, loop);
+		next_move = drive(calculate_time(motor_1_r, 2300), motor_1_r, motor_2_r, 7-2*loop, 0); 
 		move_before_turn(calculate_time(motor_1_r, robot_length),motor_1_r, motor_2_r);
-		if (i==1 && next_move==1)
-			turn('L',2500);
+		if (loop==1 && next_move==1)
+			turn('L',3000);
 		watch.stop();
 	}
 	robot_stop();
-	//pick_up(2);*/
+	fout.close();
 	return 0;
 }
