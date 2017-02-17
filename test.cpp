@@ -190,41 +190,50 @@ void robot_reverse(int motor_r, double distance)
 	rlink.command(MOTOR_1_GO, 8);
 	rlink.command(MOTOR_2_GO, 8);
 	adjust_speed_addition = 10;
+	//robot.stop();
+	watch.stop();
+	delay(2000);
+}
+
+bool scan()
+{
+	bool IS_GREEN = false;
+	rlink.command(WRITE_PORT_1,0x40);
+	rlink.command(WRITE_PORT_0,0x20 bitor current_position()); //arm DOWN
+	delay(1000);
+	watch.start();
+	while (!IS_GREEN && watch.read()<1000)   //what about lowest tomato?
+		if (1==0) 			                 //(rlink.request(ADC0) >= threshold)
+		{
+			rlink.command(WRITE_PORT_1,0x10);
+			IS_GREEN = true;	//stop and move on (tried not to add break)
+		}
+	rlink.command(WRITE_PORT_0,0x30 bitor current_position()); //arm UP
+	watch.stop();
+	delay(2000);
+	return IS_GREEN;
 }
 
 void fruit_picking(int i)
 {
-	int motor_r = 50;
+	int motor_r = 100;
 	for (int j=0;j<5;j++)
-	{	
-		bool IS_GREEN = 0;
+	{
 		int count = 0;
 		int current_pos;
-		robot_stop();
 		cout<<"Picking the "<<j<<"th fruit"<<endl;
-		//Scanning
-		rlink.command(WRITE_PORT_1,0x40);
-		rlink.command(WRITE_PORT_0,0x20 bitor current_position()); //arm DOWN
-		delay(1000);
-		watch.start();
-		while (IS_GREEN==0 && watch.read()<1000) //what about lowest tomato?
-			if (1==0) 			//(rlink.command(READ_PORT_0) & 0x0? >= threshold)
-			{
-				rlink.command(WRITE_PORT_1,0x10);
-				IS_GREEN = 1;	//stop and move on (tried not to add break)
-			}
-		rlink.command(WRITE_PORT_0,0x30 bitor current_position()); //arm UP
-		delay(2000);
+
+		bool IS_GREEN = scan();
 		
 		if (!IS_GREEN)
 		{
 			rlink.command(WRITE_PORT_1,0x20);	//result is red	
 			pick_up(i,j);
 		}
-		if (j<4)				//Moving on to next fruit
+		
+		if (j<4)								//Moving on to next fruit
 		{
 			rlink.command(WRITE_PORT_1,0x02);
-			speed_compensation = 5;
 			double time = calculate_time(motor_r, fruit_location[i][j]*pos_factor[i]);
 			watch.start();
 			while(watch.read()<time)
@@ -235,10 +244,10 @@ void fruit_picking(int i)
 					current_pos=current_position();
 				time+=line_follow(current_pos,count,motor_r,motor_r);
 			}
+			robot_stop();
+			watch.stop();
 		}		
 	}
-	speed_compensation = 7;
-	watch.stop();
 }
 
 void pick_up(int run, int fruit)
@@ -366,16 +375,12 @@ void go_to_first_stage(int motor_1_r, int motor_2_r, int run)
 	double time_2 = calculate_time(motor_1_r, robot_length);
 	int next_move = drive(time_1, motor_1_r, motor_2_r, 3-run);
 	for (int i=0;i<=1;i++)
-	{
 		if (next_move==1)
 		{
 			robot_reverse(127+50, rev_dist[i]);
-			robot_stop();
-			delay(2000);
 			fruit_picking(i);
 			next_move = drive(time_1, motor_1_r, motor_2_r, 1);
 		}
-	}
 	if (next_move==1)
 	{
 		move_before_turn(time_2, 100, 100);
@@ -479,7 +484,10 @@ int error_handling(int error_code, int motor_1_r, int motor_2_r)
 int main()
 {	
 	check();
-	int motor_1_r=100;
+	watch.start();
+	while (1==1)
+		cout << "time: " << watch.read()/1000 << "  value: " << rlink.request(ADC0) << endl;
+	/*int motor_1_r=100;
 	int motor_2_r=100;
 	int next_move;
 	for (int i=1;i<=2;i++)
@@ -497,6 +505,6 @@ int main()
 		watch.stop();
 	}
 	robot_stop();
-	//pick_up(2);
+	//pick_up(2);*/
 	return 0;
 }
